@@ -1,0 +1,230 @@
+# Description: NGINX web server deployment - using PV/PVC, deployment, service - using local files
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   labels:
+#     app: nginx
+#   name: nginx-html-pv
+# spec:
+#   capacity:
+#     storage: 1Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     path: "/wdata" # Update this path to the directory containing your static files
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   labels:
+#     app: nginx
+#   name: nginx-html-pvc
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 1Gi
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: nginx-deployment
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: nginx
+#   template:
+#     metadata:
+#       labels:
+#         app: nginx
+#     spec:
+#       containers:
+#       - name: nginx
+#         image: nginx:1.17.9-alpine
+#         ports:
+#         - containerPort: 80
+#         volumeMounts:
+#         - name: nginx-config
+#           mountPath: /etc/nginx/nginx.conf
+#           subPath: nginx.conf
+#         - name: nginx-html
+#           mountPath: /usr/share/nginx/html
+#       volumes:
+#       - name: nginx-config
+#         configMap:
+#           name: nginx-config
+#       - name: nginx-html
+#         persistentVolumeClaim:
+#           claimName: nginx-html-pvc
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: nginx-svc
+# spec:
+#   selector:
+#     app: nginx
+#   ports:
+#     - protocol: TCP
+#       port: 80
+#       targetPort: 80
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Welcome to NGINX!</title>
+    </head>
+    <body>
+      <h1>Hello, world!</h1>
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: nginx
+  name: nginx-html-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.17.9-alpine
+        ports:
+        - containerPort: 80
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod -R 755 /usr/share/nginx/html"]
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: nginx-html
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: nginx-html
+        persistentVolumeClaim:
+          claimName: nginx-html-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+
+# Description: NGINX web server deployment, service - using local files
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: nginx-deployment
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: nginx
+#   template:
+#     metadata:
+#       labels:
+#         app: nginx
+#     spec:
+#       containers:
+#       - name: nginx
+#         image: nginx:1.17.9-alpine
+#         ports:
+#         - containerPort: 80
+#         volumeMounts:
+#         - name: nginx-config
+#           mountPath: /etc/nginx/nginx.conf
+#           subPath: nginx.conf
+#         - name: nginx-html
+#           mountPath: /usr/share/nginx/html
+#       volumes:
+#       - name: nginx-config
+#         configMap:
+#           name: nginx-config
+#       - name: nginx-html
+#         configMap:
+#           name: nginx-html
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: nginx-svc
+# spec:
+#   selector:
+#     app: nginx
+#   ports:
+#     - protocol: TCP
+#       port: 80
+#       targetPort: 80
+
+# NGINX web server deployment, service - using Docker image build from Dockerfile
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: nginx-deployment
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: nginx
+#   template:
+#     metadata:
+#       labels:
+#         app: nginx
+#     spec:
+#       containers:
+#       - name: nginx
+#         image: jmuachifi/web-nginx:v1.0
+#         ports:
+#         - containerPort: 80
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: nginx-svc
+# spec:
+#   selector:
+#     app: nginx
+#   ports:
+#     - protocol: TCP
+#       port: 80
+#       targetPort: 80
+#   type: NodePort

@@ -1,0 +1,133 @@
+# MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:latest
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: root_password123
+        - name: MYSQL_DATABASE
+          value: wordpressdb
+        - name: MYSQL_USER
+          value: mysqluser
+        - name: MYSQL_PASSWORD
+          value: mysql_password123
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+# WordPress Deployment
+---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: wordpress
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: wordpress
+#   template:
+#     metadata:
+#       labels:
+#         app: wordpress
+#     spec:
+#       containers:
+#       - name: wordpress
+#         image: wordpress:latest
+#         ports:
+#         - containerPort: 80
+#         env:
+#         - name: WORDPRESS_DB_HOST
+#           value: mysql
+#         - name: WORDPRESS_DB_USER
+#           value: wordpressuser
+#         - name: WORDPRESS_DB_PASSWORD
+#           value: user_password123
+#         - name: WORDPRESS_DB_NAME
+#           value: wordpressdb
+#         command: ["/bin/sh", "-c"]
+#         args: ["cp /var/www/html/wp-config-docker.php /var/www/html/wp-config.php && apache2-foreground"]
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wordpress-config
+data:
+  wp-config.php: |
+    <?php
+    define( 'DB_NAME', 'wordpressdb' );
+    define( 'DB_USER', 'wordpressuser' );
+    define( 'DB_PASSWORD', 'user_password123' );
+    define( 'DB_HOST', 'mysql' );
+    define( 'DB_CHARSET', 'utf8mb4' );
+    define( 'DB_COLLATE', '' );
+    $table_prefix = 'wp_';
+    define( 'WP_DEBUG', false );
+    if ( ! defined( 'ABSPATH' ) ) {
+        define( 'ABSPATH', dirname( __FILE__ ) . '/' );
+    }
+    require_once ABSPATH . 'wp-settings.php';
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+      - name: wordpress
+        image: wordpress:latest
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config-volume
+          mountPath: /var/www/html/wp-config.php
+          subPath: wp-config.php
+      volumes:
+      - name: config-volume
+        configMap:
+          name: wordpress-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+spec:
+  selector:
+    app: wordpress
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
